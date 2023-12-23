@@ -1,0 +1,94 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@1385.vb_58b_86ea_fff1">
+  <actions>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobAction plugin="pipeline-model-definition@2.2151.ve32c9d209a_3f"/>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction plugin="pipeline-model-definition@2.2151.ve32c9d209a_3f">
+      <jobProperties/>
+      <triggers/>
+      <parameters/>
+      <options/>
+    </org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction>
+  </actions>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>executor</name>
+          <description>Адрес executor (без http:// и порта)</description>
+          <defaultValue>my-selenoid</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>url</name>
+          <description>Адрес Opencart (для получения ошибок ввести - http://demo.opencart.com )</description>
+          <defaultValue>http://my-opencart:8080</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>number_of_parallel</name>
+          <description>Количество запускаемых параллельно тестов (использовать не больше 5)</description>
+          <defaultValue>1</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.ChoiceParameterDefinition>
+          <name>browser</name>
+          <description>Какой браузер используем ( chrome, firefox и т.д. )?</description>
+          <choices class="java.util.Arrays$ArrayList">
+            <a class="string-array">
+              <string>chrome</string>
+              <string>firefox</string>
+              <string>safari</string>
+            </a>
+          </choices>
+        </hudson.model.ChoiceParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@3817.vd20b_7e2b_692b_">
+    <script>pipeline {
+    agent any
+    stages {
+        stage('Download git repository') {
+            steps('One') {
+                git url:'https://github.com/FilinAlexS/HW-7.git'
+            }
+        }
+        stage('Check start Selenoid') {
+            steps {
+                sh 'curl $executor:4444'
+            }
+        }
+         stage('Precondition Test') {
+            steps('Setting env') {
+                sh '''#!/usr/bin/env bash
+                      python3 -m venv venv
+                      source venv/bin/activate
+                      pip install -r requirements.txt'''
+            }
+        }
+        stage('Execute tests') {
+            steps {
+                sh '''#!/usr/bin/env bash
+                    ./venv/bin/pytest \
+                    --executor $executor \
+                    --browser $browser \
+                    --url $url \
+                    ./tests \
+                    -n $number_of_parallel'''
+            }
+            post('Create report Allure') {
+                always {
+                    allure includeProperties: false, jdk: '', reportBuildPolicy: 'ALWAYS', results: [[path: 'allure-results']]
+                }
+            }
+        }
+    }
+}
+    </script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>
